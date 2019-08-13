@@ -1,0 +1,214 @@
+---
+title: "Part3"
+author: "Yikang Wang, Kezhen Yang"
+date: "8/13/2019"
+output: pdf_document
+---
+
+```{r}
+rm(list=ls())
+
+library(mosaic)
+library(quantmod)
+library(foreach)
+```
+
+```{r}
+#FIRST porfolio  agricultrual equity
+
+# Import a few stocks
+mystocks_1 = c("DBA", "CORN", "RJA")
+#get last five year data
+myprices = getSymbols(mystocks_1, from = "2014-01-01")
+
+# Adjust for splits and dividends
+for(ticker in mystocks_1) {
+	expr = paste0(ticker, "a = adjustOHLC(", ticker, ")")
+	eval(parse(text=expr))
+}
+
+# Combine close to close changes in a single matrix
+all_returns = cbind(ClCl(DBAa),ClCl(CORNa),ClCl(RJAa))
+#omit NA column
+all_returns = as.matrix(na.omit(all_returns))
+
+N = nrow(all_returns)
+
+# Now loop over two trading weeks
+initial_wealth =100000
+sim1 = foreach(i=1:10000, .combine='rbind') %do% {
+	total_wealth = initial_wealth
+	weights = c(1/3,1/3,1/3)
+	holdings = weights * total_wealth
+	n_days = 20
+	wealthtracker = rep(0, n_days)
+	for(today in 1:n_days) {
+		return.today = resample(all_returns, 1, orig.ids=FALSE)
+		holdings = holdings + holdings*return.today
+		total_wealth = sum(holdings)
+		wealthtracker[today] = total_wealth
+	}
+	wealthtracker
+}
+#head(sim1)
+hist(sim1[,n_days], 25)
+
+#profit or loss
+mean(sim1[,n_days])
+hist(sim1[,n_days]- initial_wealth, breaks=30)
+
+#Value at Risk
+#error_1 = qt(0.95,df=length(sim1[,n_days])-1)*sd(sim1[,n_days])/sqrt(length(sim1[,n_days]))
+#left_1 <- mean(sim1[,n_days])-error_1
+#right_1 <- mean(sim1[,n_days])+error_1
+
+#error_1
+#left_1
+#right_1
+
+#high_loss = (left-initial_wealth)/initial_wealth*100
+#low_loss = (right-initial_wealth)/initial_wealth*100
+#cbind(low_loss,high_loss)
+
+
+#calulate every mean for each trial
+means_all = rowMeans(sim1, na.rm = FALSE, dims = 1)
+#get the lowest 5%(500 smallest trials)
+lowest = sort(means_all)[1:500]
+#Value at Risk(in percentage)
+VaR_1 = (mean(lowest)-initial_wealth)/initial_wealth*100
+VaR_1
+```
+
+
+
+
+```{r}
+#SECOND PORFOLIO  China equity
+
+# Import a few stocks(China equity)
+mystocks_2 = c("MCHI", "FXI", "ASHR","GXC","CQQQ")
+#get last five year data
+myprices_2 = getSymbols(mystocks_2, from = "2014-01-01")
+
+# Adjust for splits and dividends
+for(ticker in mystocks_2) {
+	expr = paste0(ticker, "a = adjustOHLC(", ticker, ")")
+	eval(parse(text=expr))
+}
+
+# Combine close to close changes in a single matrix
+all_returns_2 = cbind(ClCl(MCHIa),ClCl(FXIa),ClCl(ASHRa),ClCl(GXCa),ClCl(CQQQa))
+#omit NA column
+all_returns_2 = as.matrix(na.omit(all_returns_2))
+
+# Now loop over two trading weeks
+initial_wealth_2 = 100000
+sim2 = foreach(i=1:10000, .combine='rbind') %do% {
+	total_wealth_2 = initial_wealth_2
+	weights_2 = c(0.2,0.2,0.2,0.2,0.2)
+	holdings_2 = weights_2 * total_wealth_2
+	n_days = 20
+	wealthtracker_2 = rep(0, n_days)
+	for(today in 1:n_days) {
+		return.today_2 = resample(all_returns_2, 1, orig.ids=FALSE)
+		holdings_2 = holdings_2 + holdings_2*return.today_2
+		total_wealth_2 = sum(holdings_2)
+		wealthtracker_2[today] = total_wealth_2
+	}
+	wealthtracker_2
+}
+#head(sim2)
+hist(sim2[,n_days], 25)
+
+#profit or loss
+mean(sim2[,n_days])
+hist(sim2[,n_days]- initial_wealth_2, breaks=30)
+
+
+#Value at Risk
+#error_2 = qt(0.95,df=length(sim2[,n_days])-1)*sd(sim2[,n_days])/sqrt(length(sim2[,n_days]))
+#left_2 <- mean(sim2[,n_days])-error_2
+#right_2 <- mean(sim2[,n_days])+error_2
+
+# error_2
+# left_2
+# right_2
+
+# low = (left_2-initial_wealth)/initial_wealth*100
+# high =  (right_2-initial_wealth)/initial_wealth*100
+# cbind(low,high)
+
+#calulate every mean for each trial
+means_all = rowMeans(sim2, na.rm = FALSE, dims = 1)
+#get the lowest 5%(500 smallest trials)
+lowest = sort(means_all)[1:500]
+#Value at Risk(in percentage)
+VaR_2 = (mean(lowest)-initial_wealth_2)/initial_wealth_2*100
+VaR_2
+
+```
+```{r}
+#THIRD PORFOLIO  big technology equity
+
+# Import a few stocks(China equity)
+mystocks_3 = c("XLK", "VGT", "IYW","IGV","IXN","FTEC","QTEC","FXL","SKYY","RYT")
+#get last five year data
+myprices_3 = getSymbols(mystocks_3, from = "2014-01-01")
+
+# Adjust for splits and dividends
+for(ticker in mystocks_3) {
+	expr = paste0(ticker, "a = adjustOHLC(", ticker, ")")
+	eval(parse(text=expr))
+}
+
+# Combine close to close changes in a single matrix
+all_returns_3 = cbind(ClCl(XLKa),ClCl(VGTa),ClCl(IYWa),ClCl(IGVa),ClCl(IXNa),ClCl(FTECa),ClCl(QTECa),ClCl(FXLa),ClCl(SKYYa),ClCl(RYTa))
+#omit NA column
+all_returns_3 = as.matrix(na.omit(all_returns_3))
+
+# Now loop over two trading weeks
+initial_wealth_3 = 100000
+sim3 = foreach(i=1:10000, .combine='rbind') %do% {
+	total_wealth_3 = initial_wealth_3
+	weights_3 = c(0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1)
+	holdings_3 = weights_3 * total_wealth_3
+	n_days = 20
+	wealthtracker_3 = rep(0, n_days)
+	for(today in 1:n_days) {
+		return.today_3 = resample(all_returns_3, 1, orig.ids=FALSE)
+		holdings_3 = holdings_3 + holdings_3*return.today_3
+		total_wealth_3 = sum(holdings_3)
+		wealthtracker_3[today] = total_wealth_3
+	}
+	wealthtracker_3
+}
+#head(sim2)
+hist(sim3[,n_days], 25)
+
+#profit or loss
+mean(sim3[,n_days])
+hist(sim3[,n_days]- initial_wealth_3, breaks=30)
+
+
+# error_3 = qt(0.95,df=length(sim3[,n_days])-1)*sd(sim3[,n_days])/sqrt(length(sim3[,n_days]))
+# left_3 <- mean(sim3[,n_days])-error_3
+# right_3 <- mean(sim3[,n_days])+error_3
+# 
+# error_3
+# left_3
+# right_3
+
+# low = (left_3-initial_wealth)/initial_wealth*100
+# high =  (right_3-initial_wealth)/initial_wealth*100
+# cbind(low,high)
+
+#calulate every mean for each trial
+means_all = rowMeans(sim3, na.rm = FALSE, dims = 1)
+#get the lowest 5%(500 smallest trials)
+lowest = sort(means_all)[1:500]
+#Value at Risk(in percentage)
+VaR_3 = (mean(lowest)-initial_wealth_3)/initial_wealth_3*100
+VaR_3
+```
+
