@@ -1,0 +1,1091 @@
+---
+title: "STAT380 Predicative Modeling HW"
+date: "8/18/2019"
+output: md_document
+---
+
+```{r}
+rm(list=ls())
+library(knitr)
+library(mosaic)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+
+green = read.csv('../Data/greenbuildings.csv')
+green = na.omit(green)
+```
+
+Get summaries of age and leasing_rate variables and decide what range of occpancy to keep: >10%
+```{r}
+summary(green$age)
+summary(green$leasing_rate)
+boxplot(green$leasing_rate)
+```
+
+Check whether age is a confounding variable 
+```{r}
+ggplot(green)+
+  geom_histogram(aes(x=age, y=stat(density)), binwidth=2) +
+  facet_grid(green_rating~.)
+```
+We plotted the number of green and non-green buildings for different age, and found that when age greater than 50 there are very few instances of green buildings. We assume the reason behind this is that most green buildings are relatively new and are built within 50 years. So, using only instances of green buildings that have age less than 50 for our analysis would be more representative. Also, we know that age is a confounding variable from this distribution graph, so we want to group ages and see how rent and other costs vary for different age groups. 
+
+############### (occupancy > 10%) & (hold age roughly constant) ##############
+
+explore occupancy > 10
+```{r}
+## remove "outliers"
+df_10above_LR<-green[!(green$leasing_rate<10),]
+```
+
+cut age into groups 
+```{r}
+df_10above_LR$age_groups <- cut(df_10above_LR$age, c(-1, 8, 20, 50), include.lowest = TRUE)
+```
+
+filter out age group
+```{r}
+first2_age_10 = df_10above_LR %>%
+  filter(age_groups == '[0,8]' | age_groups == '(8,20]' |age_groups == '(20,50]')
+```
+We created 3 age groups that have range from 0-8, 8-20, and 20-50. We fitted all the instances we have into these three age groups.
+
+
+
+Boxplot rent by the age groups, and check whether rent is actually higher for green buildings than not-green buildings for all age groups
+```{r}
+ggplot(data=first2_age_10) + 
+  geom_boxplot(aes(x=age_groups, y=Rent, fill=factor(green_rating))) + 
+  theme_bw(base_size=18)+ ggtitle("Plot of rent (occupancy > 10)")
+```
+Considering only rent, we plotted boxplots of rent for the three different age groups. We can see that for the first age group (0,8), the median rent of non-green buildings is actually higher than the median rent of green buildings. As age increases, the median rent of green buildings starts increasing and becomes about the same as the median rent of non-green buildings in the second and the third groups. However, the staff claims that the median rents for both green and non-green buildings are flat rates. This is incorrect since he was not supposed to use the median calculated from instances that span the entire age range, as the median values for the two types of buildings actually fluctuate as age changes. Thus, we cannot be sure that investing in green buildings will generate about $2.60 more per square foot in revenue. It might not be feasible to recuperate the costs in around 8 years. 
+
+Boxplot total cooling+heating days for each age groups
+```{r}
+ggplot(data=first2_age_10) + 
+  geom_boxplot(aes(x=age_groups, y=total_dd_07, fill=factor(green_rating))) + 
+  theme_bw(base_size=18)+ ggtitle("Cost factor: # of cooling+heating days (occupancy>10)")+ ylab("# of total cooling+heating days")
+```
+In order to control the confounding effect of the age variable, we keep using the three age groups mentioned above. In term of total number of cooling and heating degree days, from the box plot we can see that for the first age group, the median of total number of degree days of green buildings is actually higher than that of non-green buildings, implying a greater demand of energy. This might generate a higher cost during heating or cooling days in the first 8 years for green buildings. The staff incorrectly assume that the cost for both green and non-green buildings are about the same, which is not the case. 
+
+Boxplot electricity cost + gas cost for each age groups
+```{r}
+first2_age_10$totalCost <- with(first2_age_10, Electricity_Costs+Gas_Costs)
+
+ggplot(data=first2_age_10) + 
+  geom_boxplot(aes(x=age_groups, y=totalCost, fill=factor(green_rating))) + 
+  theme_bw(base_size=18)+ ggtitle("Cost factor (occupancy > 10)")+ ylab("total costs")
+```
+Then we looked at the graph that plots the electricity and gas costs. In the first age group, we did see a lower median value of the total costs for green buildings. However, in the second and third groups (buildings with age higher than 8), the median values of the total cost are actually the same or even higher for green buildings. The staff falsely believe that the total electricity and gas cost for green buildings will always be lower than non-green buildings. This further proves that the staff assumption about revenue and cost are not correct.
+
+###############
+
+How should the staff improve his/her recommendation? The staff should take consideration into the confounding effect that the age variable caused that influence his/her cost/benefit analysis.
+
+
+
+###################
+Question 2:
+###################
+Your task is to create a figure, or set of related figures, that tell an interesting story about flights into and out of Austin. You can annotate the figure with a detailed caption, of course, but strive to make it as stand-alone as possible. It shouldn't need many, many paragraphs to convey its meaning. Rather, the figure should speak for itself as far as possible. 
+
+(a)What is the best time of day to fly to minimize delays?
+(b)What is the best time of year to fly to minimize delays?
+(c)wHAT ARE the bad UniqueCarrier to fly?
+
+```{r}
+# Read data and import library
+rm(list=ls())
+library(MASS)
+library(ISLR)
+library(leaps)
+library(Matrix)
+library(foreach)
+library(mosaic)
+library(tidyverse)
+library(ggplot2)
+set.seed(1)
+fly_data <- read.csv("../Data/ABIA.csv",header=TRUE)
+attach(fly_data)
+names(fly_data)
+```
+
+(a) What is the best time of day to fly to minimize delays?
+
+DepTime actual departure time (local, hhmm)
+CRSDepTime scheduled departure time (local, hhmm)
+ArrTime actual arrival time (local, hhmm)
+CRSArrTime scheduled arrival time (local, hhmm)
+
+ArrDelay arrival delay, in minutes
+DepDelay departure delay, in minutes
+
+```{r}
+# Create new col called total_delay to store the abs value of total delay minutes
+fly_data$Total_delay = abs(fly_data$ArrDelay) + abs(fly_data$DepDelay)
+
+
+ggplot(data = fly_data) + 
+  geom_point(mapping = aes(x = DepTime, y = Total_delay)) +
+  labs(title = "Delay Time Over an Entire Day")
+
+
+# By plot the DepTime vs Total_delay, we can observe that the majority of the delay happens during 
+# 5:00 ~ end(24:00). And there are some scatter points between 0 ~ 5:00
+# However, we cannot conclude that the best time to fly is between around 2 to 5 because there is no delay in the picture. Let's do a hist for Dep time to invest a bit more.
+
+hist(DepTime)
+# By the Histogram of DepTime, we do see that there is almost no flights take off during 2 to 5. Therefore, that would be the main reason why we see little dots in the "Delay Time Over an Entire Day"
+
+
+# Thus, we do need to re-observe the "Delay Time Over an Entire Day" plot. There are mainly two features in the plot to provide the information we need.
+# 1 How far are points away from the x-axis represent the delay length.
+# 2 How many points are listed above a certain time(x-axis) represents the total times of delay at that time.
+# By observing using the two features above, the best time over the day is in the range of [0:00, 10:00]
+
+# Let's using this particular time range to explore a bit more to shrink the range.
+
+nrow(fly_data)
+#Mask, we only want the time between 0 ~ 10
+cleaned_data = fly_data[which(fly_data$DepTime <= 1000),]
+nrow(cleaned_data)
+
+
+# Try fit the model with y = b0 + b1*x1
+lm.fit = lm(cleaned_data$Total_delay~cleaned_data$DepTime,data = cleaned_data)
+summary(lm.fit)
+plot(cleaned_data$DepTime, cleaned_data$Total_delay)
+abline(lm.fit, col="green")
+
+# By above lm model, it is not really a good idea to use fit line here.
+
+ggplot(cleaned_data, aes(DepTime, Total_delay)) +
+  geom_point(aes(color = Origin)) +
+  geom_smooth(se = FALSE) +
+  labs(title = "Delay Length(mins) Over an Entire Day(Cleaned)")
+
+# 
+# And by plotting the origin, we can observe that after 5, austin airport start to function(working start time for
+# airport staff)
+```
+
+Description:
+Let's take a closer look at the ggplot above. The X-axis represents the Departure Time of the flight, Y-axis represents the total length of delay for that flight. The additional feature is all the points are colored by its origin(origin IATA airport code).
+
+Analysis:
+Between time[0:00,2:50], there aren't as many of delays as other time, but they all pretty spread out(long delay time). While between [5:00:10:00], all the data points are condensed together to form a shape like bar plot. It represents that in the [5:00,10:00] time range, all the delays are short-timed. 
+
+Overall, the best time of a regular day to fly to minimize delay would have two possible solutions:
+If we pay more attention on the perspective of less number of delays, the best time would be:
+[0:00,2:50] and [5:00,700]
+If we pay more attention on the perspective of less delay length, the best time would be:
+[5:00,8:00]
+
+By intersect the time range above, the best time overall would be:
+[5:00,7:00]
+
+
+
+(b)What is the best time of year to fly to minimize delays?
+
+Year all 2008
+Month 1-12
+DayofMonth 1-31
+
+
+```{r}
+# import library
+library(tidyr)
+library(dplyr)
+
+# Combine month and dayofmonth
+fly_data2 = transform(fly_data, Combined_date=paste(fly_data$Month, fly_data$DayofMonth, fly_data$Year,sep="/"))
+
+# Convert the Combined_Date to Date format
+fly_data2$Combined_date = as.Date(fly_data2$Combined_date, format = "%m/%d/%Y")
+fly_data2
+
+plot(fly_data2$Combined_date, fly_data2$Total_delay,main="Delay Over Year",
+  xlab="Date", ylab="Delay(min)")
+# The plot cannot provide anything useful, there, I decide to count delay times
+
+
+
+# Aggregate the number of delay times based on Date.
+delay_df = aggregate(fly_data2$Year ~ fly_data2$Combined_date, data = fly_data2, count)
+delay_df2 = aggregate(fly_data2$Total_delay ~ fly_data2$Combined_date, data = fly_data2, sum)
+
+# Merge based on Date
+combined_df = merge(delay_df, delay_df2, by = "fly_data2$Combined_date", sort = TRUE)
+combined_df
+
+
+# Rename for sort
+names(combined_df)[1] <- "Date"
+names(combined_df)[2] <- "Delay_Times"
+names(combined_df)[3] <- "Delay_Length"
+combined_df <-combined_df[order(combined_df$Delay_Times),]
+
+# Reset index and sort based on Date
+rownames(combined_df) <- NULL
+combined_df = combined_df[order(combined_df$Delay_Length),]
+combined_df
+
+
+ggplot(combined_df, aes(Date, Delay_Length)) +
+  geom_point(aes(color = Delay_Times)) +
+  geom_smooth(se = FALSE) +
+  labs(title = "Delay Time Over an Entire Year")
+
+```
+Description:
+By observing the "Delay Time Over an Entire Year" plot,the X-axis represents the specific Date over a year. Because we have sorted the Date and there are too many points, gg plot automatically put the general Month instead of specific date for X-axis. The Y-axis represents the total delay length for a flight over entire year. Additional feature is that we colored the points by the number of delayed times over entire year. It gets darker if it has less number of delays.
+
+
+Analysis:
+We may conclude that the best time of an entire year to fly possibly over the time range of [Sept, Dec] mainly for two reasons.
+1. Less data points are spreaded there.
+2. These data points have shorter Delay_Length than other data points.
+
+We can provide more specific date, but that probably won't be super helpful since most of people usually would have a rough time range to fly rather than a specific date to fly. If that person has a specific date to fly, then he should use the conclusion from our first question.
+
+
+(c)WHAT ARE the bad UniqueCarrier to fly?
+
+UniqueCarrier unique carrier code
+FlightNum flight number
+```{r}
+plot(fly_data$UniqueCarrier,fly_data$Total_delay,main="Delay Over UniqueCarrier",
+  xlab="UniqueCarrier", ylab="Delay(min)")
+
+# Aggregate the number of delay times based on Date.
+UniqueCarrier_df = aggregate(fly_data$Year ~ fly_data$UniqueCarrier, fly_data, count)
+UniqueCarrier_df2 = aggregate(fly_data$Total_delay ~ fly_data$UniqueCarrier, fly_data, sum)
+
+
+# Merge based on UniqueCarrier
+combined_df = merge(UniqueCarrier_df, UniqueCarrier_df2, by = "fly_data$UniqueCarrier", sort = TRUE)
+combined_df
+
+# Rename for sort
+names(combined_df)[1] <- "UniqueCarrier"
+names(combined_df)[2] <- "Delay_Times"
+names(combined_df)[3] <- "Delay_Length"
+
+combined_df <-combined_df[order(combined_df$Delay_Times),]
+
+combined_df
+
+ggplot(combined_df, aes(Delay_Times, Delay_Length)) +
+  geom_point(aes(color = UniqueCarrier)) +
+  geom_smooth(se = FALSE) +
+  labs(title = "Worst UniqueCarrier")
+
+```
+Description:
+By observing the "Wosrt UniqueCarrier" plot above, the x-axis represent the total number of times for a UniqueCarrier to delay. And the y-axis represents the toatl Length of delay for that UniqueCarrier over the year. The additional feature is that point is colored by its UniqueCarrier.
+
+Analysis:
+Therefore, the closer the point gets to the [0,0] grid, the better the UniqueCarrier behaves. 
+
+
+```{r}
+# bad UniqueCarrier:
+bad_UniqueCarrier = combined_df[which(combined_df$Delay_Times > 10000),]
+bad_UniqueCarrier
+
+# Best Unique Carrier:
+good_UniqueCarrier1 = combined_df[which(combined_df$Delay_Times <2500),]
+good_UniqueCarrier2 = combined_df[which(combined_df$Delay_Length <70000),]
+best = merge(good_UniqueCarrier1, good_UniqueCarrier2, by = "UniqueCarrier", sort = TRUE)
+best
+```
+
+Above is additional result that help us obtain the specific best UniqueCarrier and worst one.
+The good ones are : EV F9 NW UA US
+
+The bad ones are: AA, WN
+
+
+###################
+Question 3
+###################
+```{r}
+rm(list=ls())
+
+library(mosaic)
+library(quantmod)
+library(foreach)
+```
+
+```{r}
+#FIRST porfolio  agricultrual equity
+
+# Import a few stocks
+mystocks_1 = c("DBA", "CORN", "RJA")
+#get last five year data
+myprices = getSymbols(mystocks_1, from = "2014-01-01")
+
+# Adjust for splits and dividends
+for(ticker in mystocks_1) {
+	expr = paste0(ticker, "a = adjustOHLC(", ticker, ")")
+	eval(parse(text=expr))
+}
+
+# Combine close to close changes in a single matrix
+all_returns = cbind(ClCl(DBAa),ClCl(CORNa),ClCl(RJAa))
+#omit NA column
+all_returns = as.matrix(na.omit(all_returns))
+
+N = nrow(all_returns)
+
+# Now loop over two trading weeks
+initial_wealth =100000
+sim1 = foreach(i=1:10000, .combine='rbind') %do% {
+	total_wealth = initial_wealth
+	weights = c(1/3,1/3,1/3)
+	holdings = weights * total_wealth
+	n_days = 20
+	wealthtracker = rep(0, n_days)
+	for(today in 1:n_days) {
+		return.today = resample(all_returns, 1, orig.ids=FALSE)
+		holdings = holdings + holdings*return.today
+		total_wealth = sum(holdings)
+		wealthtracker[today] = total_wealth
+	}
+	wealthtracker
+}
+#Get the 5% level of the total capital at the last/20th trading day 
+lowest = quantile(sim1[,n_days],0.05)
+#Value at Risk(in percentage)
+VaR_1 = (lowest-initial_wealth)/initial_wealth*100
+VaR_1
+
+#histogram of distribution of the wealth after 20 trading days for 10,000 trials
+#with red line showing lowest 5% of the disbrution of total returns
+hist(sim1[,n_days], 25)
+abline(v=lowest, col="red", lw=1)
+```
+
+
+
+
+```{r}
+#SECOND PORFOLIO  China equity
+
+# Import a few stocks(China equity)
+mystocks_2 = c("MCHI", "FXI", "ASHR","GXC","CQQQ")
+#get last five year data
+myprices_2 = getSymbols(mystocks_2, from = "2014-01-01")
+
+# Adjust for splits and dividends
+for(ticker in mystocks_2) {
+	expr = paste0(ticker, "a = adjustOHLC(", ticker, ")")
+	eval(parse(text=expr))
+}
+
+# Combine close to close changes in a single matrix
+all_returns_2 = cbind(ClCl(MCHIa),ClCl(FXIa),ClCl(ASHRa),ClCl(GXCa),ClCl(CQQQa))
+#omit NA column
+all_returns_2 = as.matrix(na.omit(all_returns_2))
+
+# Now loop over two trading weeks
+initial_wealth_2 = 100000
+sim2 = foreach(i=1:10000, .combine='rbind') %do% {
+	total_wealth_2 = initial_wealth_2
+	weights_2 = c(0.2,0.2,0.2,0.2,0.2)
+	holdings_2 = weights_2 * total_wealth_2
+	n_days = 20
+	wealthtracker_2 = rep(0, n_days)
+	for(today in 1:n_days) {
+		return.today_2 = resample(all_returns_2, 1, orig.ids=FALSE)
+		holdings_2 = holdings_2 + holdings_2*return.today_2
+		total_wealth_2 = sum(holdings_2)
+		wealthtracker_2[today] = total_wealth_2
+	}
+	wealthtracker_2
+}
+#Get the 5% level of the total capital at the last/20th trading day 
+lowest = quantile(sim2[,20],0.05)
+#Value at Risk(in percentage)
+VaR_2 = (lowest-initial_wealth_2)/initial_wealth_2*100
+VaR_2
+
+#histogram of distribution of the wealth after 20 trading days for 10,000 trials
+#with red line showing 5% of the disbrution from worst to best
+hist(sim2[,n_days], 25)
+abline(v=lowest, col="red", lw=1)
+```
+
+
+```{r}
+#THIRD PORFOLIO  big technology equity
+
+# Import a few stocks(China equity)
+mystocks_3 = c("XLK", "VGT", "IYW","IGV","IXN","FTEC","QTEC","FXL","SKYY","RYT")
+#get last five year data
+myprices_3 = getSymbols(mystocks_3, from = "2014-01-01")
+
+# Adjust for splits and dividends
+for(ticker in mystocks_3) {
+	expr = paste0(ticker, "a = adjustOHLC(", ticker, ")")
+	eval(parse(text=expr))
+}
+
+# Combine close to close changes in a single matrix
+all_returns_3 = cbind(ClCl(XLKa),ClCl(VGTa),ClCl(IYWa),ClCl(IGVa),ClCl(IXNa),ClCl(FTECa),ClCl(QTECa),ClCl(FXLa),ClCl(SKYYa),ClCl(RYTa))
+#omit NA column
+all_returns_3 = as.matrix(na.omit(all_returns_3))
+
+# Now loop over two trading weeks
+initial_wealth_3 = 100000
+sim3 = foreach(i=1:10000, .combine='rbind') %do% {
+	total_wealth_3 = initial_wealth_3
+	weights_3 = c(0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1)
+	holdings_3 = weights_3 * total_wealth_3
+	n_days = 20
+	wealthtracker_3 = rep(0, n_days)
+	for(today in 1:n_days) {
+		return.today_3 = resample(all_returns_3, 1, orig.ids=FALSE)
+		holdings_3 = holdings_3 + holdings_3*return.today_3
+		total_wealth_3 = sum(holdings_3)
+		wealthtracker_3[today] = total_wealth_3
+	}
+	wealthtracker_3
+}
+
+#Get the 5% level of the total capital at the last/20th trading day 
+lowest = quantile(sim3[,20],0.05)
+#Value at Risk(in percentage)
+VaR_3 = (lowest-initial_wealth_3)/initial_wealth_3*100
+VaR_3
+
+#histogram of distribution of the wealth after 20 trading days for 10,000 trials
+#with red line showing 5% of the disbrution from worst to best
+hist(sim3[,n_days], 25)
+abline(v=lowest, col="red", lw=1)
+```
+Report:
+Using the package above, I have created three different portfolios in Commodity and two different areas of Equities. 
+For all the three portfolios, instead of the number of the importing different number ETFs, we make sure and use all the funds have at least five years of data and tried to use Bootstrap method to resample for 1 trading days, and with a For loop iterates 20 times, we were able to obtain one of the trials regarding the estimate the 4-week (20 trading days) of total returns. Furthermore, we believe that running only one trial of the simulation is not enough. Thus, we wrote a for loop to simulate 10,000 trials of a total returns for 20 trading days.
+For the first portfolio, I imported three funds "DBA", "CORN", "RJA" from the Agricultural Equity section from the etfdb.com. Since what we are doing is the Monte Carlo Simulation, with 10,000 trials of the total returns for 20 trading days, we were able to use quantile () function to choose the total capital at 5% level or 5 percentiles among all the total capital at last trading day and this percentile is the red line on the second histogram for each portfolios.  Ultimately, we were able to calculate the Value at Risk, the value at Risk in percentage we get from the portfolio is -6.28857%, which means that the maximum loss at 5% level over 20 trading days would be 6.28857% of our initial capital. 
+For the second portfolio, I imported five funds: "MCHI", "FXI", "ASHR","GXC","CQQQ" from the China Equity section. With 10,000 trials of the total returns for 20 trading days, we were able to use quantile () function to choose the total capital at 5% level or 5 percentiles among all the total capital at last trading day. Then we calculated the average/mean of those worst total returns.  Finally, the Value at Risk we get from this portfolio is -9.823968% which means that the maximum loss at 5% level over 20 trading days would be 9.823968% of our initial capital.
+For the third portfolio, I imported ten funds: "XLK", "VGT", "IYW", "IGV", "IXN", "FTEC", "QTEC", "FXL", "SKYY", "RYT" from the Technology Equity section. With the same number of 10,000 trials of the total returns for 20 trading days, we were able to use quantile () function to choose the total capital at 5% level or 5 percentiles among all the total capital at last trading day.  Finally, we were able to calculate the Value at Risk. The Value at Risk we get from the portfolio is -6.73835% which means that the maximum loss at 5% level over 20 trading days would be 6.73835% of our initial capital.
+
+###################
+Question 4
+###################
+Consider the data in social_marketing.csv. This was data collected in the course of a market-research study using followers of the Twitter account of a large consumer brand that shall remain nameless---let's call it "NutrientH20" just to have a label. The goal here was for NutrientH20 to understand its social-media audience a little bit better, so that it could hone its messaging a little more sharply.
+
+Your task to is analyze this data as you see fit, and to prepare a concise report for NutrientH20 that identifies any interesting market segments that appear to stand out in their social-media audience. You have complete freedom in deciding how to pre-process the data and how to define "market segment." (Is it a group of correlated interests? A cluster? A latent factor? Etc.) Just use the data to come up with some interesting, well-supported insights about the audience, and be clear about what you did.
+
+
+(a) Data Clean: Clean spam col: spam;adult;uncategorized
+
+(b) fit the data to identify clusters(interesting market segments by group of correlated interests:Cluster)
+
+```{r}
+# Read data and import library
+rm(list=ls())
+library(MASS)
+library(ISLR)
+library(leaps)
+library(glmnet)
+library(Matrix)
+library(foreach)
+
+library(mosaic)
+library(tidyverse)
+
+library(ggplot2)
+library(LICORS)  # for kmeans++
+
+set.seed(1)
+social_marketing <- read.csv("../Data/social_marketing.csv",header=TRUE)
+attach(social_marketing)
+
+detach(social_marketing)
+```
+
+(a) Data Clean
+
+```{r}
+# Rename the first col to user
+names(social_marketing)[1] <- 'user'
+
+# Delete the useless cols.
+social_marketing = subset(social_marketing, select = -c(spam,adult,uncategorized) )
+
+names(social_marketing)
+nrow(social_marketing)
+
+```
+
+
+(b) fit the data to identify clusters(interesting market segments)
+
+K-means
+
+try1 = girls
+
+"chatter","photo_sharing","tv_film","beauty","dating","personal_fitness","fashion"
+```{r}
+girl_col =  c("chatter","photo_sharing","tv_film","beauty","dating","personal_fitness","fashion")
+try1 = social_marketing[girl_col]
+
+try1 = scale(try1)
+```
+
+
+```{r}
+#k elbow
+library(foreach)
+k_grid = seq(2, 20, by=1)
+SSE_grid = foreach(k = k_grid, .combine='c') %do% {
+  cluster_k = kmeans(try1, k, nstart=50)
+  cluster_k$tot.withinss
+}
+plot(k_grid, SSE_grid)
+
+# CH index
+N = nrow(try1)
+k_grid = seq(2, 20, by=1)
+CH_grid = foreach(k = k_grid, .combine='c') %do% {
+  cluster_k = kmeans(cars, k, nstart=50)
+  W = cluster_k$tot.withinss
+  B = cluster_k$betweenss
+  CH = (B/W)*((N-k)/(k-1))
+  CH
+}
+
+plot(k_grid, CH_grid)
+# From above two plots, k = 10 prob a good estimate 
+```
+
+```{r}
+# Center and scale the data
+try1 = social_marketing[girl_col]
+try1 = scale(try1, center=TRUE, scale=TRUE)
+
+# Extract the centers and scales from the rescaled data (which are named attributes)
+mu = attr(try1,"scaled:center")
+sigma = attr(try1,"scaled:scale")
+
+# Run k-means with 10 clusters and 25 starts
+clust1 = kmeans(try1, 10, nstart=25)
+
+
+# What are the clusters?
+clust1$center  # not super helpful
+clust1$center[1,]*sigma + mu
+clust1$center[2,]*sigma + mu
+clust1$center[4,]*sigma + mu
+
+
+# Which cars are in which clusters?
+summary(clust1)
+which(clust1$cluster == 1)
+which(clust1$cluster == 2)
+which(clust1$cluster == 3)
+which(clust1$cluster == 4)
+which(clust1$cluster == 5)
+
+# A few plots with cluster membership shown
+# qplot is in the ggplot2 library
+
+# Attributes:"chatter","photo_sharing","tv_film","beauty","dating","personal_fitness","fashion"
+
+# Audience who love to chat and share photos
+qplot(chatter, photo_sharing, data=social_marketing, color=factor(clust1$cluster)) +
+  labs(title = "Audience love chatter and photo_sharing")
+
+
+# Audience who are like to focus on beauty and fashion - beauty type 1
+qplot(beauty, fashion, data=social_marketing, color=factor(clust1$cluster)) +
+  labs(title = "Audience love beauty and fashion")
+
+# Audience who like to focus on beauty also on fitness - beauty type 2
+qplot(photo_sharing, tv_film, data=social_marketing, color=factor(clust1$cluster))+
+  labs(title = "Audience love photo_sharing and tv_film")
+```
+
+In part(b), what we did is we first targeted all the potential 'girls' with the attributes:"chatter","photo_sharing","tv_film","beauty","dating","personal_fitness","fashion". After we segment these attributes user from the original dataset, we used the k-elbow and the CH-index to determine what is the best k(clusters) to use for later clustering. However, the k-elbow and ch-index is not in harmony, we have to estimate our by our best approximate equal to 10.
+
+Then after we scaled our new girl dateset and clustered it by group their correlated interests, below are the interesting market segments that appear to stand out:
+
+By speicifc the attributes to three combinations:
+
+1. (chatter, photo_sharing), we can find all the user who addicted to chat via internet.
+By observing the plot "Audience love chatter and photo_sharing", the X-AXIS represents the degree of chatter, the Y-AXIS represents the degree of photo_sharing. 
+Therefore, the high value brown dots(factor2) represent the stand-out audience that fits into our combination 1. 
+They are the most active users in NutrientH20 follower list.
+For the future, if NutrientH20 has some events or party, they will be very likely to participate in.
+
+
+2. (beauty, fashion), we can find all users who are potentially willing to spend more on cosmetic.
+By observing the plot "Audience love beauty and fashion", the X-AXIS represents the degree of beauty, the Y-AXIS represents the degree of fashion.
+Therefore, the high value deep green dots(factor3) represent the stand-out audience that fits into our combination 2. They are the potential users that willing to pay most for beauty and fashion items in NutrientH20 follower list.
+For the future, if NutrientH20 have new beauty and fashion items that want to sell, it would be high-rewarded if the company send these users about the new product message in the first place.
+
+
+3. (photo_sharing, tv_film), we can find all users who are Movie enthusiast.
+By observing the plot "Audience love photo_sharing and tv_film", the X-AXIS represents the degree of photo_sharing, the Y-AXIS represents the degree of tv_film.
+Therefore, the high value light blue dots(factor7) represent the stand-out audience that fits into our combination 3.
+They are the potential users that willing to pay most for new tv/movies and related movie items in NutrientH20 follower list.
+For the future, if NutrientH20 have new tv/movies related items that want to sell, it would be best if the company send these users about the new product message in the first place.
+
+
+
+
+
+
+try2 = student athelete
+
+"sports_fandom","food","health_nutrition","sports_playing","outdoors","personal_fitness"
+```{r}
+athelete_col =  c("sports_fandom","food","health_nutrition","sports_playing","outdoors","personal_fitness")
+try2 = social_marketing[athelete_col]
+
+try2 = scale(try2)
+```
+
+
+```{r}
+#k elbow
+library(foreach)
+k_grid = seq(2, 20, by=1)
+SSE_grid = foreach(k = k_grid, .combine='c') %do% {
+  cluster_k = kmeans(try2, k, nstart=50)
+  cluster_k$tot.withinss
+}
+plot(k_grid, SSE_grid)
+
+# CH index
+N = nrow(try2)
+k_grid = seq(2, 20, by=1)
+CH_grid = foreach(k = k_grid, .combine='c') %do% {
+  cluster_k = kmeans(cars, k, nstart=50)
+  W = cluster_k$tot.withinss
+  B = cluster_k$betweenss
+  CH = (B/W)*((N-k)/(k-1))
+  CH
+}
+
+plot(k_grid, CH_grid)
+# From above two plots, k = 10 prob a good estimate 
+```
+
+```{r}
+# Center and scale the data
+try2 = social_marketing[athelete_col]
+try2 = scale(try2, center=TRUE, scale=TRUE)
+
+# Extract the centers and scales from the rescaled data (which are named attributes)
+mu = attr(try2,"scaled:center")
+sigma = attr(try2,"scaled:scale")
+
+# Run k-means with 10 clusters and 25 starts
+clust1 = kmeans(try2, 10, nstart=25)
+
+
+# What are the clusters?
+clust1$center  # not super helpful
+clust1$center[1,]*sigma + mu
+clust1$center[2,]*sigma + mu
+clust1$center[4,]*sigma + mu
+
+
+# Which cars are in which clusters?
+summary(clust1)
+which(clust1$cluster == 1)
+which(clust1$cluster == 2)
+which(clust1$cluster == 3)
+which(clust1$cluster == 4)
+which(clust1$cluster == 5)
+
+# A few plots with cluster membership shown
+# qplot is in the ggplot2 library
+
+# attributes: "sports_fandom","food","health_nutrition","sports_playing","outdoors","personal_fitness"
+qplot(food, health_nutrition, data=social_marketing, color=factor(clust1$cluster))+
+  labs(title = "Audience love food and health_nutrition")
+
+qplot(outdoors, personal_fitness, data=social_marketing, color=factor(clust1$cluster))+
+  labs(title = "Audience love outdoors and personal_fitness")
+```
+
+
+Here is the second group or related interets we have explored:
+
+4.(food, health_nutrition), we can find all users who are love food and health_nutrition items.
+By observing the plot "Audience love food and health_nutrition", the X-AXIS represents the degree of food, the Y-AXIS represents the degree of health_nutrition.
+Therefore, the high value light blue dots(factor6) represent the stand-out audience that fits into our combination 4.
+They are the potential users that willing to pay most for all kinds of food and health_nutritionss in NutrientH20 follower list.
+For the future, if NutrientH20 have all kinds of food and health_nutritionss related items that want to sell, it would be best if the company send these users about the related product message in certain frequency.
+
+5.(outdoors, personal_fitness), we can find all users who are love food and health_nutrition items.
+By observing the plot "Audience love outdoors and personal_fitness", the X-AXIS represents the degree of outdoors, the Y-AXIS represents the degree of personal_fitness.
+Therefore, the high value light blue dots(factor6) represent the stand-out audience that fits into our combination 5.
+They are the potential users that willing to pay for outdoors and personal_fitness related items.
+For the future, if NutrientH20 have fitness related products, it would be nice to send uers the message of them.
+
+
+
+
+###################
+Question 5
+###################
+Your task is to build the best model you can, using any combination of tools you see fit, for predicting the author of an article on the basis of that article's textual content. Describe clearly what models you are using, how you constructed features, and so forth.
+
+In the C50train directory, you have ~50 articles from each of 50 different authors (one author per directory). Use this training data (and this data alone) to build the model. Then apply your model to predict the authorship of the articles in the C50test directory, which is about the same size as the training set. Describe your data pre-processing and analysis pipeline in detail.
+
+```{r}
+rm(list=ls())
+library(tm)
+library(proxy)
+library(randomForest)
+library(dplyr)
+library(caret)
+library(e1071)
+set.seed(1)
+```
+
+In Question Q5, we have three sections for our contents. 
+1. Data pre-processing 
+2. Model1: RandomForest 
+3. Model2: Naive Bayer 
+4. Model3: Knn
+
+1. Data pre-processing 
+
+Step1: Function Def and Array Def
+```{r}
+###############################################################################################################
+# define the function that will read in the files
+readerPlain = function(fname){
+  readPlain(elem = list(content = readLines(fname)), 
+            id = fname, language = 'en') }
+
+# Define all the array that we will use for later
+file_path_train = character(0)
+folder_name_train = character(0)
+
+file_path_test = character(0)
+folder_name_test = character(0)
+
+text_train = character(0)
+text_test = character(0)
+```
+
+Step2: Read Data
+```{r}
+################################################################################################################
+# read folders for train
+author_folder_train = dir("../Data/ReutersC50/C50train/")
+
+# read folders for test
+author_folder_test = dir("../Data/ReutersC50/C50test/")
+
+
+# Read every single txt files
+for (file_txt in author_folder_train){
+  file_path_train = c(file_path_train, Sys.glob(paste('../Data/ReutersC50/C50train/', file_txt,'/*.txt',sep = "")))
+  folder_name_train = c(folder_name_train, rep(file_txt, each = length(Sys.glob(paste('../Data/ReutersC50/C50train/', ... =     file_txt,'/*.txt',sep = "")))))
+}
+
+for (file_txt in author_folder_test){
+  file_path_test = c(file_path_test, Sys.glob(paste('../Data/ReutersC50/C50test/', file_txt,'/*.txt',sep = "")))
+  folder_name_test = c(folder_name_test, rep(file_txt, each = length(Sys.glob(paste('../Data/ReutersC50/C50test/', file_txt,'/*.txt',sep = "")))))
+}
+
+
+# store file as list
+file_list_train = lapply(file_path_train, readerPlain)
+
+# clean the file name
+file_names_train = file_path_train %>%
+  { strsplit(., '/', fixed=TRUE) } %>%
+  { lapply(., tail, n=2) } %>%
+  { lapply(., paste0, collapse = '') } %>%
+  unlist
+
+# store file as list
+file_list_test = lapply(file_path_test, readerPlain)
+
+# clean the file name
+file_names_test = file_path_test %>%
+  strsplit("/") %>%
+  lapply(tail,n = 2) %>%
+  lapply(paste0, collapse = "") %>%
+  unlist
+
+
+# create a dataframe with doc_id as author-article and text as the text in that article
+for(index_id in 1:length(file_names_train)){
+  text_train = c(text_train, paste(content(file_list_train[[index_id]]), collapse = "\t",sep = ""))
+}
+
+for(index_id in 1:length(file_names_test)){
+  text_test = c(text_test, paste(content(file_list_test[[index_id]]), collapse = "\t",sep = ""))
+}
+
+
+# dataframe with text and document_id
+text_df_train = data.frame(doc_id = file_names_train,
+                            text = text_train)
+# convert the dataframe to a Corpus
+train_corpus_raw = Corpus(DataframeSource(text_df_train))
+
+# dataframe with text and document_id
+text_df_test = data.frame(doc_id = file_names_test,
+                           text = text_test)
+# convert the dataframe to a Corpus
+test_corpus_raw = Corpus(DataframeSource(text_df_test))
+```
+
+Step 3
+Some pre-processing/tokenization steps.
+tm_map just maps some function to every document in the corpus
+```{r}
+#########################################################################################################
+
+# Clean test
+my_documents_train = train_corpus_raw
+my_documents_train = tm_map(my_documents_train, content_transformer(tolower)) # make everything lowercase
+my_documents_train = tm_map(my_documents_train, content_transformer(removeNumbers)) # remove numbers
+my_documents_train = tm_map(my_documents_train, content_transformer(removePunctuation)) # remove punctuation
+my_documents_train = tm_map(my_documents_train, content_transformer(stripWhitespace)) ## remove excess white-space
+my_documents_train = tm_map(my_documents_train, content_transformer(removeWords), stopwords("en"))# remove stop words
+# Clean Train
+my_documents_test = test_corpus_raw
+my_documents_test = tm_map(my_documents_test, content_transformer(tolower)) # make everything lowercase
+my_documents_test = tm_map(my_documents_test, content_transformer(removeNumbers)) # remove numbers
+my_documents_test = tm_map(my_documents_test, content_transformer(removePunctuation)) # remove punctuation
+my_documents_test = tm_map(my_documents_test, content_transformer(stripWhitespace)) ## remove excess white-space
+my_documents_test = tm_map(my_documents_test, content_transformer(removeWords), stopwords("en")) # remove stop words
+```
+
+Step 4:
+drop unnecessary stuff.
+```{r}
+####################################################################################################################
+## create a doc-term-matrix
+DTM_documents_train = DocumentTermMatrix(my_documents_train)
+DTM_documents_test = DocumentTermMatrix(my_documents_test)
+
+# removes those terms that have count 0 in >98% of docs
+DTM_documents_train = removeSparseTerms(DTM_documents_train, 0.98)
+DTM_documents_test = removeSparseTerms(DTM_documents_test, 0.98)
+
+# calculate the TF-IDF 
+tfidf_documents_train = weightTfIdf(DTM_documents_train)
+tfidf_documents_test = weightTfIdf(DTM_documents_test)
+X_train = as.data.frame(as.matrix(tfidf_documents_train))
+X_test = as.data.frame(as.matrix(tfidf_documents_test))
+```
+
+Step 5:
+Get the common items from both train and test dataset
+```{r}
+####################################################################################################################
+common_terms=intersect(names(X_train),names(X_test))
+X_train=X_train[,common_terms]
+X_test=X_test[,common_terms]
+
+#rename column to prevent error
+colnames(X_train)[colnames(X_train)=="next"] <- "next_c"
+colnames(X_train)[colnames(X_train)=="break"] <- "break_c"
+colnames(X_test)[colnames(X_test)=="next"] <- "next_c"
+colnames(X_test)[colnames(X_test)=="break"] <- "break_c"
+colnames(X_train)[colnames(X_train)=="else"] <- "else_c"
+colnames(X_test)[colnames(X_test)=="else"] <- "else_c"
+colnames(X_train)[colnames(X_train)=="function"] <- "f_c"
+colnames(X_test)[colnames(X_test)=="function"] <- "f_c"
+
+# Cbind folder_name into the train and test dataset
+X_train = cbind(X_train, folder_name_train)
+X_test = cbind(X_test, folder_name_test)
+```
+
+
+
+2. Model1: RandomForest 
+```{r}
+# Run the RF model in train dataset
+for(i in c(50,100,200)){
+  rf_model = randomForest(folder_name_train~.,data = X_train,ntree =i)
+# Predict with test dataset and put into a table with our original folder_name_test
+table = as.data.frame(table(predict(rf_model, X_test, type = "response"),folder_name_test))
+
+# Create a new "correct" col contains 1 if the name matches else contains 0
+table$correct = ifelse(table$Var1==table$folder_name_test, 1, 0)
+
+# Filter all the correct = 1 rows and create a new col called "correct_num" contains the number of correctness
+correctness_table = table %>% 
+  filter(correct == 1) 
+table$correct_num = table$Freq * table$correct
+
+# Calculate accuracy by sum the total number of correctness by the total number of counts
+total_num_correct = sum(table$correct_num)
+total = sum(table$Freq)
+accuracy = total_num_correct/total * 100 
+
+# print it out
+cat("Accuracy is", accuracy,"%", " when ntree = ", i)
+}
+```
+
+We have used the Randomforest tree to test our accuracy. 
+With the loop we used above, we used ntree = 50, 100, and 200 to improve the accuracy.
+The corresponding accuracy is:
+ntree = 50    accuracy = 58.12%
+ntree = 100   accuracy = 61.28%
+ntree = 200   accuracy = 62.8 %  ***Best one
+
+
+3. Model2: Naive Bayer 
+```{r}
+
+NBclassfier=naiveBayes(folder_name_train~., data=X_train)
+#print(NBclassfier)
+
+NB_fit = predict(NBclassfier, X_test, type = "class")
+
+
+# Predict with test dataset and put into a table with our original folder_name_test
+table = as.data.frame(table(NB_fit,folder_name_test))
+
+# Create a new "correct" col contains 1 if the name matches else contains 0
+table$correct = ifelse(table$NB_fit==table$folder_name_test, 1, 0)
+
+
+# Filter all the correct = 1 rows and create a new col called "correct_num" contains the number of correctness
+correctness_table = table %>% 
+  filter(correct == 1) 
+table$correct_num = table$Freq * table$correct
+
+# Calculate accuracy by sum the total number of correctness by the total number of counts
+total_num_correct = sum(table$correct_num)
+total = sum(table$Freq)
+accuracy = total_num_correct/total * 100 
+
+# print it out
+cat("Accuracy is", accuracy,"%")
+
+```
+We have used the Naive Bayer to test our accuracy as well.
+The final accuracy we get is 44.56 %
+
+4.Model3: Knn
+
+```{r}
+library(class)
+X_train_no_ans = subset(X_train, select = -c(folder_name_train) )
+X_test_no_ans = subset(X_test, select = -c(folder_name_test) )
+
+for(i in c(5,10,15)){
+knn_model <- knn(train = X_train_no_ans, test = X_test_no_ans,cl = X_train$folder_name_train, k=i)
+
+table = as.data.frame(table(knn_model,folder_name_test))
+# Create a new "correct" col contains 1 if the name matches else contains 0
+table$correct = ifelse(table$knn_model==table$folder_name_test, 1, 0)
+
+
+# Filter all the correct = 1 rows and create a new col called "correct_num" contains the number of correctness
+correctness_table = table %>% 
+  filter(correct == 1) 
+table$correct_num = table$Freq * table$correct
+
+# Calculate accuracy by sum the total number of correctness by the total number of counts
+total_num_correct = sum(table$correct_num)
+total = sum(table$Freq)
+accuracy = total_num_correct/total * 100 
+
+# print it out
+cat("Accuracy is", accuracy,"%", " when k is = ",i)
+}
+```
+And for Knn, 
+With the loop we used above, we used k = 5, 10, and 15 to improve the accuracy.
+The corresponding accuracy is:
+k = 5    accuracy = 45 %  ***Best one
+k = 10   accuracy = 43.68%
+k = 15   accuracy = 42.36 %
+
+
+
+
+Therefore, our RandomForest model > Knn > Naive Bayers. For future improvement, there are several good ways to improve accuracy.
+First of all, if we increase the number in "removeSparseTerms(DTM_documents_train, 0.98)", we can utalize more information to predict, and thus improve the accuracy.
+Second, by increase the number of tree that we used in Randomforest, might also be helpful but also sort of limited since the number of tree doesn't have linear relationship with the accuracy we will get.
+Last but not least, if we can have more files to train out model, the model's accuracy might improve as well.
+
+
+
+###################
+Question 6
+###################
+
+```{r}
+rm(list=ls())
+library(arules)
+library(arulesViz)
+
+#read in groceries.txt as transaction 
+groceries_tran <- read.transactions("../Data/groceries.txt", sep = ",")
+
+#summary of our transaction
+summary(groceries_tran)
+```
+
+```{r}
+#plot a top 10 groceries item across from all transactions
+itemFrequencyPlot(groceries_tran,topN=10)
+
+#generate rules with condience 0.1, and support 0.005
+groceries_rule = apriori(groceries_tran, 
+	parameter=list(support=.005, confidence=.15, maxlen=5))
+#Support:Fractionoftransactionsthatcontain both X and Y
+#confidence: Measureshowoftenitemsin Y appear in transactions that contain X
+
+#inspect all rule generated by the apriori algorithm
+inspect(groceries_rule)
+```
+```{r}
+#LIFT:Measures that take into account statistical dependence: only inpect items with LIFT value >=3
+inspect(subset(groceries_rule, subset=lift > 3))
+```
+
+```{r}
+#inspect by LIFT in descending order
+lifts <- sort (groceries_rule, by="lift", decreasing=TRUE)
+inspect((lifts))[1:15,]
+```
+```{r}
+# plot all the rules in (support, confidence) space
+# notice that high lift rules tend to have low support
+plot(groceries_rule)
+
+# can swap the axes and color scales
+plot(groceries_rule, measure = c("support", "lift"), shading = "confidence")
+
+# "two key" plot: coloring is by size (order) of item set
+plot(groceries_rule, method='two-key plot')
+
+# graph-based visualization
+sub1 = subset(groceries_rule, subset=confidence > 0.01 & support > 0.005)
+summary(sub1)
+#graph for rule for confidence > 0.01 and support >0.005
+plot(sub1, method='graph')
+
+plot(head(sub1, 30, by='lift'), method='graph')
+
+```
+From the frequency plot, we find that the 10 merchandises that most frequently show in customers??? baskets are whole milk, other vegetables, rolls/buns, soda, yogurt, bottled water, root vegetables, tropical fruit, shopping bags, and sausage. Most of these make sense. It’s interesting to find that the shopping bag is among these merchandises. The reason it shows up might be that about 10% of people don’t bring shopping bags with them when they do groceries shopping. 
+We sort all the associations rules by lift score in descending order. Among the top 30 association rules that have the highest lift score, we found most of them make sense. 
+For examples, for the association rule {ham} => {white bread}, it has a high lift score because when people want to make ham sandwiches, they need both ham and bread, so they are often in the same basket. Another example is {beef, other vegetables} => {root vegetables}. These are all necessary ingredients if people are preparing to make beef stew so they are associated together. For the associations rule {margarine, whole milk} => {domestic eggs}, when people buy margarine and whole milk for baking, they must also have eggs. As for the rule {berries} => {whipped/sour cream}, simply mixing them is a great option for people wants dessert, so they are always being purchased at the same time. For {hygiene articles} => {napkins}, a potential reason they are in the same rule might be that these two merchandises are often in the same aisle. So, when people buy hygiene articles, they are likely to see napkins, too, and eventually purchase both of them. 
+We chose thresholds of 0.15 for confidence and 0.005 for support. We chose these thresholds because gives us an adequate number of association rules (1162). We believe using these thresholds generates the associations rules that represent the patterns in the data the most.
+We plotted the relationships between confidence/lift and support. Our finding is that high confidence/lift rules tend to have low support. We also plotted a graph for the top 30 rules that have the highest lift score. From the graph, we see a pattern that merchandises in the same category tend to be clustered together. These categories include fruits, vegetables, dairy products, etc.
+
+
