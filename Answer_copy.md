@@ -751,16 +751,16 @@ the total capital at 5% level or 5 percentiles among all the total
 capital at last trading day and this percentile is the red line on the
 second histogram for each portfolios. Ultimately, we were able to
 calculate the Value at Risk, the value at Risk in percentage we get from
-the portfolio is -6.28857%, which means that the maximum loss at 5%
-level over 20 trading days would be 6.28857% of our initial capital. For
+the portfolio is -6.171921%, which means that the maximum loss at 5%
+level over 20 trading days would be 6.171921% of our initial capital. For
 the second portfolio, I imported five funds: “MCHI”, “FXI”,
 “ASHR”,“GXC”,“CQQQ” from the China Equity section. With 10,000 trials of
 the total returns for 20 trading days, we were able to use quantile ()
 function to choose the total capital at 5% level or 5 percentiles among
 all the total capital at last trading day. Then we calculated the
 average/mean of those worst total returns. Finally, the Value at Risk we
-get from this portfolio is -9.823968% which means that the maximum loss
-at 5% level over 20 trading days would be 9.823968% of our initial
+get from this portfolio is -9.780584% which means that the maximum loss
+at 5% level over 20 trading days would be 9.780584% of our initial
 capital. For the third portfolio, I imported ten funds: “XLK”, “VGT”,
 “IYW”, “IGV”, “IXN”, “FTEC”, “QTEC”, “FXL”, “SKYY”, “RYT” from the
 Technology Equity section. With the same number of 10,000 trials of the
@@ -768,8 +768,8 @@ total returns for 20 trading days, we were able to use quantile ()
 function to choose the total capital at 5% level or 5 percentiles among
 all the total capital at last trading day. Finally, we were able to
 calculate the Value at Risk. The Value at Risk we get from the portfolio
-is -6.73835% which means that the maximum loss at 5% level over 20
-trading days would be 6.73835% of our initial capital.
+is -6.429252% which means that the maximum loss at 5% level over 20
+trading days would be 6.429252% of our initial capital.
 
 ################### 
 
@@ -1453,7 +1453,7 @@ Step 5: Get the common items from both train and test dataset
     train = cbind(train, folder_name_train)
     test = cbind(test, folder_name_test)
 
-1.  Model1: RandomForest
+2.  Model1: RandomForest
 
 <!-- -->
 
@@ -1486,12 +1486,12 @@ Step 5: Get the common items from both train and test dataset
     ## Accuracy is 64.24 %  when ntree =  600
 
 We have used the Randomforest tree to test our accuracy. With the loop
-we used above, we used ntree = 50, 100, and 200,600 to improve the
-accuracy. The corresponding accuracy is: ntree = 50 accuracy = 58.12%
-ntree = 100 accuracy = 61.28% ntree = 200 accuracy = 62.8 % \*\*\*Best
-one
+we used above, we used ntree = 50,200,600 to improve the
+accuracy. The corresponding accuracy is:   Accuracy is 57.96 %  when ntree =  50
+    Accuracy is 63.04 %  when ntree =  200
+    Accuracy is 64.24 %  when ntree =  600(best)
 
-1.  Model2: Naive Bayer
+3.  Model2: Naive Bayer
 
 <!-- -->
 
@@ -1561,8 +1561,9 @@ accuracy we get is 44.56 %
     ## Accuracy is 42.04 %  when k is =  15
 
 And for Knn, With the loop we used above, we used k = 5, 10, and 15 to
-improve the accuracy. The corresponding accuracy is: k = 5 accuracy = 45
-% \*\*\*Best one k = 10 accuracy = 43.68% k = 15 accuracy = 42.36 %
+improve the accuracy. The corresponding accuracy is:Accuracy is 44.36 %  when k is =  5（best）
+     Accuracy is 43.76 %  when k is =  10
+    Accuracy is 42.04 %  when k is =  15
 
 Therefore, our RandomForest model &gt; Knn &gt; Naive Bayers. For future
 improvement, there are several good ways to improve accuracy. First of
