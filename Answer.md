@@ -121,8 +121,8 @@ Check whether age is a confounding variable
       geom_histogram(aes(x=age, y=stat(density)), binwidth=2) +
       facet_grid(green_rating~.)
 
-![](Answer_files/figure-markdown_strict/unnamed-chunk-3-1.png) We
-plotted the number of green and non-green buildings for different age,
+![](Answer_files/figure-markdown_strict/unnamed-chunk-3-1.png) 
+We plotted the number of green and non-green buildings for different age,
 and found that when age greater than 50 there are very few instances of
 green buildings. We assume the reason behind this is that most green
 buildings are relatively new and are built within 50 years. So, using
@@ -178,8 +178,8 @@ Boxplot total cooling+heating days for each age groups
       geom_boxplot(aes(x=age_groups, y=total_dd_07, fill=factor(green_rating))) + 
       theme_bw(base_size=18)+ ggtitle("Cost factor: # of cooling+heating days (occupancy>10)")+ ylab("# of total cooling+heating days")
 
-![](Answer_files/figure-markdown_strict/unnamed-chunk-8-1.png) In order
-to control the confounding effect of the age variable, we keep using the
+![](Answer_files/figure-markdown_strict/unnamed-chunk-8-1.png) 
+In order to control the confounding effect of the age variable, we keep using the
 three age groups mentioned above. In term of total number of cooling and
 heating degree days, from the box plot we can see that for the first age
 group, the median of total number of degree days of green buildings is
@@ -197,8 +197,8 @@ Boxplot electricity cost + gas cost for each age groups
       geom_boxplot(aes(x=age_groups, y=totalCost, fill=factor(green_rating))) + 
       theme_bw(base_size=18)+ ggtitle("Cost factor (occupancy > 10)")+ ylab("total costs")
 
-![](Answer_files/figure-markdown_strict/unnamed-chunk-9-1.png) Then we
-looked at the graph that plots the electricity and gas costs. In the
+![](Answer_files/figure-markdown_strict/unnamed-chunk-9-1.png) 
+Then we looked at the graph that plots the electricity and gas costs. In the
 first age group, we did see a lower median value of the total costs for
 green buildings. However, in the second and third groups (buildings with
 age higher than 8), the median values of the total cost are actually the
@@ -215,8 +215,8 @@ caused that influence his/her cost/benefit analysis.
 
 ################### 
 
-Question 2: \#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\# Your task is to
-create a figure, or set of related figures, that tell an interesting
+Question 2: \#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\# 
+Your task is to create a figure, or set of related figures, that tell an interesting
 story about flights into and out of Austin. You can annotate the figure
 with a detailed caption, of course, but strive to make it as stand-alone
 as possible. It shouldn’t need many, many paragraphs to convey its
@@ -742,7 +742,8 @@ and with a For loop iterates 20 times, we were able to obtain one of the
 trials regarding the estimate the 4-week (20 trading days) of total
 returns. Furthermore, we believe that running only one trial of the
 simulation is not enough. Thus, we wrote a for loop to simulate 10,000
-trials of a total returns for 20 trading days. For the first portfolio,
+trials of a total returns for 20 trading days. 
+For the first portfolio,
 I imported three funds “DBA”, “CORN”, “RJA” from the Agricultural Equity
 section from the etfdb.com. Since what we are doing is the Monte Carlo
 Simulation, with 10,000 trials of the total returns for 20 trading days,
@@ -750,30 +751,32 @@ we were able to use quantile () function to choose the total capital at
 5% level or 5 percentiles among all the total capital at last trading
 day and this percentile is the red line on the second histogram for each
 portfolios. Ultimately, we were able to calculate the Value at Risk, the
-value at Risk in percentage we get from the portfolio is -6.28857%,
+value at Risk in percentage we get from the portfolio is -6.171921%,
 which means that the maximum loss at 5% level over 20 trading days would
-be 6.28857% of our initial capital. For the second portfolio, I imported
-five funds: “MCHI”, “FXI”, “ASHR”,“GXC”,“CQQQ” from the China Equity
+be 6.171921% of our initial capital. 
+For the second portfolio, 
+I imported five funds: “MCHI”, “FXI”, “ASHR”,“GXC”,“CQQQ” from the China Equity
 section. With 10,000 trials of the total returns for 20 trading days, we
 were able to use quantile () function to choose the total capital at 5%
 level or 5 percentiles among all the total capital at last trading day.
 Then we calculated the average/mean of those worst total returns.
-Finally, the Value at Risk we get from this portfolio is -9.823968%
+Finally, the Value at Risk we get from this portfolio is -9.780584%
 which means that the maximum loss at 5% level over 20 trading days would
-be 9.823968% of our initial capital. For the third portfolio, I imported
-ten funds: “XLK”, “VGT”, “IYW”, “IGV”, “IXN”, “FTEC”, “QTEC”, “FXL”,
+be 9.780584% of our initial capital. 
+For the third portfolio, 
+I imported ten funds: “XLK”, “VGT”, “IYW”, “IGV”, “IXN”, “FTEC”, “QTEC”, “FXL”,
 “SKYY”, “RYT” from the Technology Equity section. With the same number
 of 10,000 trials of the total returns for 20 trading days, we were able
 to use quantile () function to choose the total capital at 5% level or 5
 percentiles among all the total capital at last trading day. Finally, we
 were able to calculate the Value at Risk. The Value at Risk we get from
-the portfolio is -6.73835% which means that the maximum loss at 5% level
-over 20 trading days would be 6.73835% of our initial capital.
+the portfolio is -6.429252% which means that the maximum loss at 5% level
+over 20 trading days would be 6.429252% of our initial capital.
 
 ################### 
 
-Question 4 \#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\# Consider the data in
-social\_marketing.csv. This was data collected in the course of a
+Question 4 \#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\# 
+Consider the data in social\_marketing.csv. This was data collected in the course of a
 market-research study using followers of the Twitter account of a large
 consumer brand that shall remain nameless—let’s call it “NutrientH20”
 just to have a label. The goal here was for NutrientH20 to understand
@@ -1452,7 +1455,7 @@ Step 5: Get the common items from both train and test dataset
     X_train = cbind(X_train, folder_name_train)
     X_test = cbind(X_test, folder_name_test)
 
-1.  Model1: RandomForest
+2.  Model1: RandomForest
 
 <!-- -->
 
@@ -1483,10 +1486,12 @@ Step 5: Get the common items from both train and test dataset
 
 We have used the Randomforest tree to test our accuracy. With the loop
 we used above, we used ntree = 50, 100, and 200 to improve the accuracy.
-The corresponding accuracy is: ntree = 50 accuracy = 58.12% ntree = 100
-accuracy = 61.28% ntree = 200 accuracy = 62.8 % \*\*\*Best one
+The corresponding accuracy is: 
+Accuracy is 57.96 %  when ntree =  50
+Accuracy is 61.76 %  when ntree =  100
+Accuracy is 62.52 %  when ntree =  200
 
-1.  Model2: Naive Bayer
+3.  Model2: Naive Bayer
 
 <!-- -->
 
@@ -1552,8 +1557,10 @@ accuracy we get is 44.56 %
     ## Accuracy is 44.36 %  when k is =  5Accuracy is 44.16 %  when k is =  10Accuracy is 42.56 %  when k is =  15
 
 And for Knn, With the loop we used above, we used k = 5, 10, and 15 to
-improve the accuracy. The corresponding accuracy is: k = 5 accuracy = 45
-% \*\*\*Best one k = 10 accuracy = 43.68% k = 15 accuracy = 42.36 %
+improve the accuracy. The corresponding accuracy is: 
+Accuracy is 44.36 %  when k is =  5
+Accuracy is 44.16 %  when k is =  10
+Accuracy is 42.56 %  when k is =  15
 
 Therefore, our RandomForest model &gt; Knn &gt; Naive Bayers. For future
 improvement, there are several good ways to improve accuracy. First of
@@ -1888,8 +1895,8 @@ Question 6 \#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#
 
     plot(head(sub1, 30, by='lift'), method='graph')
 
-![](Answer_files/figure-markdown_strict/unnamed-chunk-40-5.png) From the
-frequency plot, we find that the 10 merchandises that most frequently
+![](Answer_files/figure-markdown_strict/unnamed-chunk-40-5.png) 
+From the frequency plot, we find that the 10 merchandises that most frequently
 show in customers??? baskets are whole milk, other vegetables,
 rolls/buns, soda, yogurt, bottled water, root vegetables, tropical
 fruit, shopping bags, and sausage. Most of these make sense. It’s
